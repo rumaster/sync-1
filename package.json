@@ -1,0 +1,21 @@
+{
+  "name": "mongodb-change-stream",
+  "version": "1.0.0",
+  "description": "Node.js script to listen for MongoDB change events and copy documents to another collection",
+  "scripts": {
+    "start": "ts-node app.ts",
+    "reindex": "ts-node sync.ts --full-reindex",
+    "sync": "ts-node sync.ts",
+    "format": "prettier --write \"**/*.ts\""
+  },
+  "author": "Yuriy Vermenko",
+  "license": "MIT",
+  "dependencies": {
+    "@faker-js/faker": "^8.0.1",
+    "dotenv": "^10.0.0",
+    "mongodb": "^4.1.0",
+    "ts-node": "^10.3.0",
+    "typescript": "^4.4.4",
+    "prettier": "^2.8.8"
+  }
+}
