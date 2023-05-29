@@ -32,26 +32,46 @@ async function synchronizeDocuments(
   customersCollection: Collection<Customer>,
   customersAnonCollection: Collection<Customer>
 ): Promise<void> {
-  // Получение существующих документов из коллекции customers_anonymised
-  const existingUniqueFields = await customersAnonCollection.distinct("_id");
+  const pipeline = [
+    {
+      $lookup: {
+        from: 'customers_anonymised',
+        localField: '_id',
+        foreignField: '_id',
+        as: 'existingDocuments'
+      }
+    },
+    {
+      $match: {
+        existingDocuments: { $size: 0 }
+      }
+    },
+  ];
 
-  // Поиск новых документов в коллекции customers
-  const newDocuments = await customersCollection
-    .find({ _id: { $nin: existingUniqueFields } })
-    .toArray();
+  const newDocumentsCursor = await customersCollection.aggregate(pipeline);
 
-  if (newDocuments.length > 0) {
-    // Копирование новых документов в коллекцию customers_anonymised  с модификацией полей
-    const synchronizedDocuments = newDocuments.map(convertDocument);
+  let batchDocuments = [];
 
-    // Добавление синхронизированных документов в коллекцию customers2
-    await customersAnonCollection.insertMany(synchronizedDocuments);
+  while (await newDocumentsCursor.hasNext()) {
+    // Копирование нового документа в коллекцию customers_anonymised  с модификацией полей
+    const document = convertDocument(await newDocumentsCursor.next() as Customer);
 
-    console.log(
-      `Synchronized ${synchronizedDocuments.length} documents from customers to customers_anonymised`
-    );
-  } else {
-    console.log("No new documents to synchronize");
+    batchDocuments.push(document);
+
+    if (batchDocuments.length === 1000) {
+      // Добавление пачки синхронизированных документов в коллекцию customers_anonymised
+      await customersAnonCollection.insertMany(batchDocuments);
+
+      console.log(`Synchronized ${batchDocuments.length} documents from customers to customers_anonymised`);
+
+      batchDocuments = [];
+    }
+  }
+
+  // Добавление оставшихся документов, если есть
+  if (batchDocuments.length > 0) {
+    await customersAnonCollection.insertMany(batchDocuments);
+    console.log(`Synchronized ${batchDocuments.length} documents from customers to customers_anonymised`);
   }
 }
 
