@@ -1,29 +1,33 @@
 import { MongoClient, Db, Collection } from "mongodb";
 import * as dotenv from "dotenv";
+import random from 'random-seed'
 import { Customer } from "./common";
 
 dotenv.config();
 
 // Функция для генерации случайной строки
-function generateRandomString(length: number = 8): string {
+function generateRandomString(seed: string, length: number = 8): string {
+  const rand = random.create(seed);
+
   const characters =
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   let randomString = "";
 
   for (let i = 0; i < length; i++) {
-    const randomIndex = Math.floor(Math.random() * characters.length);
+    const randomIndex = rand(characters.length);
     randomString += characters.charAt(randomIndex);
   }
 
   return randomString;
 }
+
 const convertDocument = (customer: Customer): Customer => {
-  customer.firstName = generateRandomString();
-  customer.lastName = generateRandomString();
-  customer.email = customer.email.replace(/^[^@]+/, generateRandomString());
-  customer.address.line1 = generateRandomString();
-  customer.address.line2 = generateRandomString();
-  customer.address.postcode = generateRandomString();
+  customer.firstName = generateRandomString(customer.firstName);
+  customer.lastName = generateRandomString(customer.lastName);
+  customer.email = customer.email.replace(/^[^@]+/, generateRandomString(customer.email));
+  customer.address.line1 = generateRandomString(customer.address.line1);
+  customer.address.line2 = generateRandomString(customer.address.line2);
+  customer.address.postcode = generateRandomString(customer.address.postcode);
 
   return customer;
 };
@@ -83,36 +87,46 @@ async function subscribeToChanges(
   let documentBuffer: Customer[] = [];
   let timer: NodeJS.Timeout;
 
-  const insertDocuments = async () => {
-    const toIsert = documentBuffer;
+  const upsertDocuments = async () => {
+    const toUpdate = documentBuffer.map((document) => ({
+      updateOne: {
+        filter: { _id: document._id },
+        update: { $set: document },
+        upsert: true
+      }
+    }));
     documentBuffer = [];
 
-    if (toIsert.length > 0) {
-      // Копирование пачки документов в коллекцию customers_anonymised
-      await customersAnonCollection.insertMany(toIsert);
+    if (toUpdate.length > 0) {
+      // Обновление пачки документов в коллекции customers_anonymised
+      await customersAnonCollection.bulkWrite(toUpdate);
       console.log(
-        `Inserted ${toIsert.length} documents into customers_anonymised`
+        `Updated ${toUpdate.length} documents`
       );
     }
 
     clearTimeout(timer);
-    timer = setTimeout(insertDocuments, 1000);
+    timer = setTimeout(upsertDocuments, 1000);
   };
 
   changeStream.on("change", async (change) => {
-    if (change.operationType === "insert") {
-      // модификацировать поля документа и накопить
-      const newDocument = convertDocument(change.fullDocument);
-      documentBuffer.push(newDocument);
+    switch (change.operationType) {
+      case "insert":
+      case "update": {
+        if (!change.fullDocument) break;
+        const newDocument = convertDocument(change.fullDocument);
+        documentBuffer.push(newDocument);
 
-      if (documentBuffer.length >= 1000) {
-        await insertDocuments();
+        if (documentBuffer.length >= 1000) {
+          await upsertDocuments();
+        }
+        break;
       }
     }
   });
 
   // запустить таймер
-  timer = setTimeout(insertDocuments, 1000);
+  timer = setTimeout(upsertDocuments, 1000);
 
   console.log("Listening for new documents in the customers collection...");
 }

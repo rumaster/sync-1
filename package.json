@@ -14,8 +14,12 @@
     "@faker-js/faker": "^8.0.1",
     "dotenv": "^10.0.0",
     "mongodb": "^4.1.0",
+    "prettier": "^2.8.8",
+    "random-seed": "^0.3.0",
     "ts-node": "^10.3.0",
-    "typescript": "^4.4.4",
-    "prettier": "^2.8.8"
+    "typescript": "^4.4.4"
+  },
+  "devDependencies": {
+    "@types/random-seed": "^0.3.3"
   }
 }
