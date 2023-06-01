@@ -92,7 +92,9 @@ async function subscribeToChanges(
   customersCollection: Collection<Customer>,
   customersAnonCollection: Collection<Customer>
 ): Promise<void> {
-  const changeStream = customersCollection.watch([], { fullDocument: 'updateLookup' });
+  const changeStream = customersCollection.watch([], {
+    fullDocument: "updateLookup",
+  });
   let documentBuffer: Customer[] = [];
   let timer: NodeJS.Timeout;
 
