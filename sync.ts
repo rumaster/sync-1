@@ -92,7 +92,7 @@ async function subscribeToChanges(
   customersCollection: Collection<Customer>,
   customersAnonCollection: Collection<Customer>
 ): Promise<void> {
-  const changeStream = customersCollection.watch();
+  const changeStream = customersCollection.watch([], { fullDocument: 'updateLookup' });
   let documentBuffer: Customer[] = [];
   let timer: NodeJS.Timeout;
 
@@ -120,7 +120,6 @@ async function subscribeToChanges(
     switch (change.operationType) {
       case "insert":
       case "update": {
-        if (!change.fullDocument) break;
         const newDocument = convertDocument(change.fullDocument);
         documentBuffer.push(newDocument);
 
