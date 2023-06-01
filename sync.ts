@@ -1,6 +1,6 @@
 import { MongoClient, Db, Collection } from "mongodb";
 import * as dotenv from "dotenv";
-import random from 'random-seed'
+import random from "random-seed";
 import { Customer } from "./common";
 
 dotenv.config();
@@ -24,11 +24,15 @@ function generateRandomString(seed: string, length: number = 8): string {
 const convertDocument = (customer: Customer): Customer => {
   customer.firstName = generateRandomString(customer.firstName);
   customer.lastName = generateRandomString(customer.lastName);
-  customer.email = customer.email.replace(/^[^@]+/, generateRandomString(customer.email));
+  customer.email = customer.email.replace(
+    /^[^@]+/,
+    generateRandomString(customer.email)
+  );
   customer.address.line1 = generateRandomString(customer.address.line1);
   customer.address.line2 = generateRandomString(customer.address.line2);
   customer.address.postcode = generateRandomString(customer.address.postcode);
 
+  console.log(customer);
   return customer;
 };
 
@@ -39,16 +43,16 @@ async function synchronizeDocuments(
   const pipeline = [
     {
       $lookup: {
-        from: 'customers_anonymised',
-        localField: '_id',
-        foreignField: '_id',
-        as: 'existingDocuments'
-      }
+        from: "customers_anonymised",
+        localField: "_id",
+        foreignField: "_id",
+        as: "existingDocuments",
+      },
     },
     {
       $match: {
-        existingDocuments: { $size: 0 }
-      }
+        existingDocuments: { $size: 0 },
+      },
     },
   ];
 
@@ -58,7 +62,9 @@ async function synchronizeDocuments(
 
   while (await newDocumentsCursor.hasNext()) {
     // Копирование нового документа в коллекцию customers_anonymised  с модификацией полей
-    const document = convertDocument(await newDocumentsCursor.next() as Customer);
+    const document = convertDocument(
+      (await newDocumentsCursor.next()) as Customer
+    );
 
     batchDocuments.push(document);
 
@@ -66,7 +72,9 @@ async function synchronizeDocuments(
       // Добавление пачки синхронизированных документов в коллекцию customers_anonymised
       await customersAnonCollection.insertMany(batchDocuments);
 
-      console.log(`Synchronized ${batchDocuments.length} documents from customers to customers_anonymised`);
+      console.log(
+        `Synchronized ${batchDocuments.length} documents from customers to customers_anonymised`
+      );
 
       batchDocuments = [];
     }
@@ -75,7 +83,9 @@ async function synchronizeDocuments(
   // Добавление оставшихся документов, если есть
   if (batchDocuments.length > 0) {
     await customersAnonCollection.insertMany(batchDocuments);
-    console.log(`Synchronized ${batchDocuments.length} documents from customers to customers_anonymised`);
+    console.log(
+      `Synchronized ${batchDocuments.length} documents from customers to customers_anonymised`
+    );
   }
 }
 
@@ -92,17 +102,15 @@ async function subscribeToChanges(
       updateOne: {
         filter: { _id: document._id },
         update: { $set: document },
-        upsert: true
-      }
+        upsert: true,
+      },
     }));
     documentBuffer = [];
 
     if (toUpdate.length > 0) {
       // Обновление пачки документов в коллекции customers_anonymised
       await customersAnonCollection.bulkWrite(toUpdate);
-      console.log(
-        `Updated ${toUpdate.length} documents`
-      );
+      console.log(`Updated ${toUpdate.length} documents`);
     }
 
     clearTimeout(timer);
