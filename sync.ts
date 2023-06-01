@@ -32,7 +32,6 @@ const convertDocument = (customer: Customer): Customer => {
   customer.address.line2 = generateRandomString(customer.address.line2);
   customer.address.postcode = generateRandomString(customer.address.postcode);
 
-  console.log(customer);
   return customer;
 };
 
